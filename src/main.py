@@ -1,0 +1,104 @@
+import os
+import sys
+import numpy as np
+import pandas as pd
+
+# Ensuring that the src directory is in the system path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from data_preprocessing import load_data, handle_missing_values, encode_categorical_features
+from feature_engineering import feature_selection
+from modeling import (
+    split_data, train_linear_regression, train_random_forest,
+    train_xgboost, evaluate_model
+)
+from utils import (
+    plot_correlation_matrix, plot_feature_importance, plot_actual_vs_predicted,
+    plot_residuals, plot_saleprice_distribution
+)
+
+def main():
+    # Setting up paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(script_dir)
+    data_path = os.path.join(project_dir, 'data', 'raw', 'house_prices.csv')
+    processed_data_path = os.path.join(project_dir, 'data', 'processed', 'processed_data.csv')
+    plots_dir = os.path.join(project_dir, 'plots')
+
+    # Ensuring directories exist
+    os.makedirs(os.path.dirname(processed_data_path), exist_ok=True)
+    os.makedirs(plots_dir, exist_ok=True)
+
+    # Loading Data
+    df = load_data(data_path)
+    print("Data loaded successfully.")
+
+    # Visualize the distribution of SalePrice
+    plot_saleprice_distribution(df, plots_dir)
+
+    # Data Preprocessing
+    df_clean = handle_missing_values(df)
+    print("Missing values handled.")
+
+    df_encoded = encode_categorical_features(df_clean)
+    print("Categorical features encoded.")
+
+    # Saving processed data
+    df_encoded.to_csv(processed_data_path, index=False)
+    print("Processed data saved.")
+
+    # Featuring Engineering
+    df_selected = feature_selection(df_encoded)
+    print("Feature selection completed.")
+
+    # Visualize the correlation matrix
+    plot_correlation_matrix(df_selected, plots_dir)
+
+    # Applying log transformation to 'SalePrice'
+    df_selected['SalePrice'] = np.log1p(df_selected['SalePrice'])
+
+    # Modeling
+    # Splitting features and target
+    X = df_selected.drop('SalePrice', axis=1)
+    y = df_selected['SalePrice']
+
+    X_train, X_test, y_train, y_test = split_data(X, y)
+    print("Data split into training and testing sets.")
+
+    # Training models
+    print("Training Linear Regression model...")
+    lr_model = train_linear_regression(X_train, y_train)
+
+    print("Training Random Forest model...")
+    rf_model = train_random_forest(X_train, y_train)
+
+    print("Training XGBoost model...")
+    xg_model = train_xgboost(X_train, y_train)
+
+    # Evaluating models
+    print("\nModel Performance:")
+
+    # Linear Regression
+    lr_rmse, lr_y_pred = evaluate_model(lr_model, X_test, y_test, return_predictions=True)
+    print(f'Linear Regression RMSE: {lr_rmse:.2f}')
+    plot_actual_vs_predicted(y_test, lr_y_pred, 'Linear Regression', plots_dir)
+    plot_residuals(y_test, lr_y_pred, 'Linear Regression', plots_dir)
+
+    # Random Forest
+    rf_rmse, rf_y_pred = evaluate_model(rf_model, X_test, y_test, return_predictions=True)
+    print(f'Random Forest RMSE: {rf_rmse:.2f}')
+    plot_feature_importance(rf_model, X_train, 'Random Forest', plots_dir)
+    plot_actual_vs_predicted(y_test, rf_y_pred, 'Random Forest', plots_dir)
+    plot_residuals(y_test, rf_y_pred, 'Random Forest', plots_dir)
+
+    # XGBoost
+    xg_rmse, xg_y_pred = evaluate_model(xg_model, X_test, y_test, return_predictions=True)
+    print(f'XGBoost RMSE: {xg_rmse:.2f}')
+    plot_feature_importance(xg_model, X_train, 'XGBoost', plots_dir)
+    plot_actual_vs_predicted(y_test, xg_y_pred, 'XGBoost', plots_dir)
+    plot_residuals(y_test, xg_y_pred, 'XGBoost', plots_dir)
+
+    print("\nAll visualizations have been saved to the 'plots' directory.")
+
+if __name__ == '__main__':
+    main()
