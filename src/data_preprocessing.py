@@ -1,5 +1,9 @@
+# data_preprocessing.py
+
 import pandas as pd
 from sklearn.impute import SimpleImputer
+import numpy as np
+from scipy import stats
 
 def load_data(file_path):
     return pd.read_csv(file_path)
@@ -19,6 +23,19 @@ def handle_missing_values(df):
 
     return df
 
+def remove_outliers(df, z_thresh=3):
+    # Removing outliers based on Z-score
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs(stats.zscore(df[numeric_cols]))
+    filtered_entries = (z_scores < z_thresh).all(axis=1)
+    df = df[filtered_entries]
+    return df
+
 def encode_categorical_features(df):
     df = pd.get_dummies(df, drop_first=True)
+    return df
+
+def create_new_features(df):
+    # Creating new features
+    df['TotalSF'] = df['TotalBsmtSF'] + df['GrLivArea']
     return df
